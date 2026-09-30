@@ -1,69 +1,100 @@
-import Image from "next/image";
+"use client";
+import { useState } from "react";
+
+type Result = { number: string; name: string; count: number };
 
 export default function Home() {
+  const [mode, setMode] = useState<"number" | "name">("number");
+  const [query, setQuery] = useState("");
+  const [message, setMessage] = useState("");
+  const [results, setResults] = useState<Result[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  function switchMode(m: "number" | "name") {
+    setMode(m);
+    setQuery("");
+    setMessage("");
+    setResults([]);
+  }
+
+  async function search() {
+    const q = query.trim();
+    if (!q) return;
+    setLoading(true);
+    setMessage("");
+    setResults([]);
+    try {
+      const res = await fetch(`/api/search?${mode}=${encodeURIComponent(q)}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setMessage(data.error ?? "Something went wrong");
+      } else if (mode === "number") {
+        if (data.name)
+          setResults([
+            { number: data.number, name: data.name, count: data.count },
+          ]);
+        else setMessage("No name found for this number");
+      } else {
+        if (data.results.length > 0) setResults(data.results);
+        else setMessage("No results found for this name");
+      }
+    } catch {
+      setMessage("Connection problem. Please try again.");
+    }
+    setLoading(false);
+  }
+
+  const tab = (m: "number" | "name") =>
+    `px-4 py-1 rounded ${
+      mode === m ? "bg-blue-600 text-white" : "bg-gray-200 text-black"
+    }`;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
+    <main className="min-h-screen flex flex-col items-center justify-center gap-6 p-6">
+      <h1 className="text-4xl font-bold">NILLBOOK</h1>
+      <p className="text-gray-500">Connect. Identify. Manage.</p>
+
+      <div className="flex gap-2">
+        <button onClick={() => switchMode("number")} className={tab("number")}>
+          Number
+        </button>
+        <button onClick={() => switchMode("name")} className={tab("name")}>
+          Name
+        </button>
+      </div>
+
+      <div className="flex gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && search()}
+          placeholder={mode === "number" ? "+8801700000000" : "Search by name"}
+          className="border rounded px-3 py-2 w-64 text-black"
         />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+        <button
+          onClick={search}
+          disabled={loading}
+          className="bg-blue-600 text-white rounded px-4 py-2"
+        >
+          {loading ? "Searching..." : "Search"}
+        </button>
+      </div>
+
+      {message && <p className="text-xl">{message}</p>}
+
+      {results.length > 0 && (
+        <ul className="flex flex-col gap-3 w-full max-w-md">
+          {results.map((r) => (
+            <li key={`${r.number}|${r.name}`} className="border rounded p-3">
+              <p className="text-xl font-semibold">{r.name}</p>
+              <p>{r.number}</p>
+              <p className="text-sm text-gray-500">
+                saved by {r.count} {r.count === 1 ? "person" : "people"}
+              </p>
+            </li>
+          ))}
+        </ul>
+      )}
+    </main>
   );
 }
