@@ -1,10 +1,30 @@
 "use client";
 import { useState } from "react";
 
-type Result = { number: string; name: string; count: number };
+type Result = {
+  number: string;
+  name: string;
+  count: number;
+  registered: boolean;
+};
+
+const COUNTRIES = [
+  { code: "BD", label: "Bangladesh (+880)" },
+  { code: "IN", label: "India (+91)" },
+  { code: "PK", label: "Pakistan (+92)" },
+  { code: "NP", label: "Nepal (+977)" },
+  { code: "LK", label: "Sri Lanka (+94)" },
+  { code: "AE", label: "UAE (+971)" },
+  { code: "SA", label: "Saudi Arabia (+966)" },
+  { code: "MY", label: "Malaysia (+60)" },
+  { code: "SG", label: "Singapore (+65)" },
+  { code: "GB", label: "United Kingdom (+44)" },
+  { code: "US", label: "United States (+1)" },
+];
 
 export default function Home() {
   const [mode, setMode] = useState<"number" | "name">("number");
+  const [country, setCountry] = useState("BD");
   const [query, setQuery] = useState("");
   const [message, setMessage] = useState("");
   const [results, setResults] = useState<Result[]>([]);
@@ -24,16 +44,24 @@ export default function Home() {
     setMessage("");
     setResults([]);
     try {
-      const res = await fetch(`/api/search?${mode}=${encodeURIComponent(q)}`);
+      const extra = mode === "number" ? `&country=${country}` : "";
+      const res = await fetch(
+        `/api/search?${mode}=${encodeURIComponent(q)}${extra}`
+      );
       const data = await res.json();
       if (!res.ok) {
         setMessage(data.error ?? "Something went wrong");
       } else if (mode === "number") {
         if (data.name)
           setResults([
-            { number: data.number, name: data.name, count: data.count },
+            {
+              number: data.number,
+              name: data.name,
+              count: data.count,
+              registered: data.registered,
+            },
           ]);
-        else setMessage("No name found for this number");
+        else setMessage(`No name found for ${data.number}`);
       } else {
         if (data.results.length > 0) setResults(data.results);
         else setMessage("No results found for this name");
@@ -63,12 +91,25 @@ export default function Home() {
         </button>
       </div>
 
-      <div className="flex gap-2">
+      <div className="flex flex-wrap justify-center gap-2">
+        {mode === "number" && (
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="border rounded px-2 py-2 text-black"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        )}
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && search()}
-          placeholder={mode === "number" ? "+8801700000000" : "Search by name"}
+          placeholder={mode === "number" ? "01700000000" : "Search by name"}
           className="border rounded px-3 py-2 w-64 text-black"
         />
         <button
@@ -88,9 +129,15 @@ export default function Home() {
             <li key={`${r.number}|${r.name}`} className="border rounded p-3">
               <p className="text-xl font-semibold">{r.name}</p>
               <p>{r.number}</p>
-              <p className="text-sm text-gray-500">
-                saved by {r.count} {r.count === 1 ? "person" : "people"}
-              </p>
+              {r.registered ? (
+                <p className="text-sm text-green-600">
+                  Registered on NILLBOOK
+                </p>
+              ) : (
+                <p className="text-sm text-gray-500">
+                  saved by {r.count} {r.count === 1 ? "person" : "people"}
+                </p>
+              )}
             </li>
           ))}
         </ul>
